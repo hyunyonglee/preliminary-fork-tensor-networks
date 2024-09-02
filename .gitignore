@@ -1,0 +1,8 @@
+# Data folder
+logs/
+examples/
+
+# Garbage
+.DS_Store
+.vscode
+*workspace*
