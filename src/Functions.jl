@@ -37,7 +37,7 @@ function krylov_expm(H::Tuple{Vararg{Union{ITensor,Complex,AbstractFloat}}}, x0:
 
     w = deepcopy(x0)
     residual = 0.0
-    
+
     for j = 1:max_iter
 
         w .= noprime(reduce(*, H, init=Vs[j]))
@@ -50,18 +50,18 @@ function krylov_expm(H::Tuple{Vararg{Union{ITensor,Complex,AbstractFloat}}}, x0:
             T[j+1, j] = norm(w)
             Vs[j+1] = deepcopy(w) / T[j+1, j]
         end
-        
+
         # Calculate current approximation
         exp_T = exp(T[1:j, 1:j])
         fill!(exp_Av_current, 0.0 + 0.0im)
         for i = 1:j
             exp_Av_current .+= Vs[i] * exp_T[i, 1] * norm_x
         end
-        
+
         # Convergence check
         if j > 1
             δexp_Av .= exp_Av_current - exp_Av
-            residual = abs(norm(δexp_Av)/norm(exp_Av_current))
+            residual = abs(norm(δexp_Av) / norm(exp_Av_current))
             if residual < tol
                 if verbose
                     println("--- Krylov exponentiation converged after $j iterations with the residual $residual.")
@@ -72,7 +72,7 @@ function krylov_expm(H::Tuple{Vararg{Union{ITensor,Complex,AbstractFloat}}}, x0:
 
         # Update for next iteration
         exp_Av .= exp_Av_current
-        
+
     end # end for j
 
     if verbose

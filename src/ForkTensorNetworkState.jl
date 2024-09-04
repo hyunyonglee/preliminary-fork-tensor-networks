@@ -4,11 +4,11 @@
     Copyright (C) 2024 Hyun-Yong Lee <hyunyong@korea.ac.kr>
 """
 mutable struct ForkTensorNetworkState
-    
+
     Lx::Int                                                    # Number of Sites in the x-direction
     Ly::Int                                                    # Number of Sites in the y-direction
-    χˣ::Union{Integer, Nothing}                                # Maximum bond dimension along the x-direction
-    χʸ::Union{Integer, Nothing}                                # Maximum bond dimension along the y-direction
+    χˣ::Union{Integer,Nothing}                                # Maximum bond dimension along the x-direction
+    χʸ::Union{Integer,Nothing}                                # Maximum bond dimension along the y-direction
     canonical_center::Union{Tuple{Integer,Integer},Nothing}    # Canonical center
     network_matrix::Matrix{Integer}                            # Network Matrix
     coordinates::Matrix{Integer}                               # Coordinates of the sites
@@ -23,7 +23,7 @@ mutable struct ForkTensorNetworkState
         ForkTensorNetworkState(Lx::Int, Ly::Int, phys_idx::Vector{Index}, χˣ::Int, χʸ::Int)
         Constructor for the ForkTensorNetworkState
     """
-    function ForkTensorNetworkState(Lx::T, Ly::T, phys_idx::Vector{Index{T}}; χˣ=nothing, χʸ=nothing) where T<:Integer
+    function ForkTensorNetworkState(Lx::T, Ly::T, phys_idx::Vector{Index{T}}; χˣ=nothing, χʸ=nothing) where {T<:Integer}
         ψ = new(
             Lx,                                         # Number of Sites in the x-direction
             Ly,                                         # Number of Sites in the y-direction
@@ -49,7 +49,7 @@ mutable struct ForkTensorNetworkState
     ForkTensorNetworkState(Lx::Int, Ly::Int, phys_idx::Matrix{Index}, χˣ::Int, χʸ::Int)
     Constructor for the ForkTensorNetworkState
     """
-    function ForkTensorNetworkState(Lx::T, Ly::T, phys_idx::Matrix{Index{T}}; χˣ=nothing, χʸ=nothing) where T<:Integer
+    function ForkTensorNetworkState(Lx::T, Ly::T, phys_idx::Matrix{Index{T}}; χˣ=nothing, χʸ=nothing) where {T<:Integer}
         ψ = new(
             Lx,                                         # Number of Sites in the x-direction
             Ly,                                         # Number of Sites in the y-direction
@@ -130,7 +130,7 @@ end
     initialize_indices!(ψ::ForkTensorNetworkState)
     Initializes the indices of the tensors
 """
-function initialize_indices!(ψ::ForkTensorNetworkState, phys_idx::Union{Nothing,Vector{Index{T}}}=nothing) where T<:Integer
+function initialize_indices!(ψ::ForkTensorNetworkState, phys_idx::Union{Nothing,Vector{Index{T}}}=nothing) where {T<:Integer}
 
     if phys_idx !== nothing
         for x = 1:ψ.Lx
@@ -310,7 +310,7 @@ end
     Move the canonical center in the Fork Tensor Network State
 """
 function canonical_center_move!(ψ::ForkTensorNetworkState, dir::String)
-    
+
     xc = ψ.canonical_center[1]
     yc = ψ.canonical_center[2]
 
@@ -420,13 +420,13 @@ function expectation_value_ftn(ψ::ForkTensorNetworkState, Ĥ::ForkTensorNetwor
         Tx *= Ty
     end
 
-    return scalar(Tx)/norm_ftn(ψ)
+    return scalar(Tx) / norm_ftn(ψ)
 
 end
 
 
 
-function expectation_value_ftn(ψ::ForkTensorNetworkState, ops::Vector{Tuple{T, T, String}}) where T<:Integer
+function expectation_value_ftn(ψ::ForkTensorNetworkState, ops::Vector{Tuple{T,T,String}}) where {T<:Integer}
 
     normalize_ftn!(ψ)
 
@@ -437,7 +437,7 @@ function expectation_value_ftn(ψ::ForkTensorNetworkState, ops::Vector{Tuple{T, 
             canonical_form!(ψ, x, y)
         end
 
-        return scalar( ψ.Ts[x,y] * op(op_name, ψ.phys_idx[x,y]) * dag(prime(ψ.Ts[x,y]; tags="Site")) )
+        return scalar(ψ.Ts[x, y] * op(op_name, ψ.phys_idx[x, y]) * dag(prime(ψ.Ts[x, y]; tags="Site")))
 
     else
 
@@ -445,19 +445,19 @@ function expectation_value_ftn(ψ::ForkTensorNetworkState, ops::Vector{Tuple{T, 
         applying_local_operators!(ψ′, ops)
 
         return overlap_ftn(ψ, ψ′)
-        
+
     end
 
 end
 
 
 
-function applying_local_operators!(ψ::ForkTensorNetworkState, ops::Vector{Tuple{T, T, String}}) where T<:Integer
+function applying_local_operators!(ψ::ForkTensorNetworkState, ops::Vector{Tuple{T,T,String}}) where {T<:Integer}
 
-    for i=1:length(ops)
+    for i = 1:length(ops)
 
         x, y, op_name = ops[i]
-        ψ.Ts[x,y] .= noprime(op(ψ.phys_idx[x,y], op_name) * ψ.Ts[x,y])
+        ψ.Ts[x, y] .= noprime(op(ψ.phys_idx[x, y], op_name) * ψ.Ts[x, y])
 
     end
 
