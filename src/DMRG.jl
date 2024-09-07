@@ -48,6 +48,7 @@ end # struct DMRG
 function run_dmrg!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator, ψ₀::ForkTensorNetworkState)
 
     ψ = deepcopy(ψ₀)
+    tol = dmrg.params["svd_tol"]
     ψ.χˣ = dmrg.params["χˣ"]
     ψ.χʸ = dmrg.params["χʸ"]
 
@@ -75,7 +76,7 @@ function run_dmrg!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator, ψ₀::ForkTensor
         E₀ = dmrg.E
 
         dmrg.params["verbose"] && println("Iteration: ", i, ", Energy: ", dmrg.E, ", δE: ", δE)
-
+        flush(stdout)
         δE < dmrg.params["convergence_tol"] && break
     end
 
@@ -320,10 +321,11 @@ function two_site_sweep_arm_right!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator, �
     ψ.canonical_center[2] != 1 && throw(ArgumentError("Canonical center should be at the leftmost site of the system when updating the arm right."))
 
     x = ψ.canonical_center[1]
-    χʸ = dmrg.params["χʸ"]
-
+    χʸlst = ones(ψ.Ly)*dmrg.params["χʸ"]
+    χʸlst[1:4] = [20,40,60,80]
+    tol = dmrg.params["svd_tol"]
     for y = 1:(ψ.Ly-1)
-
+        χʸ = χʸlst[y]
         if y == 1
 
             T, dmrg.E = lanczos((dmrg.εu[x], dmrg.εd[x], Ĥ.Ws[x, y], Ĥ.Ws[x, y+1], dmrg.εr[x, y+1]), ψ.Ts[x, y] * ψ.Ts[x, y+1];)
@@ -333,7 +335,7 @@ function two_site_sweep_arm_right!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator, �
                 T, ψ.Ts[x, y+2], ψ.aux_y_idx[x, y+1] = bond_expansion(Env, T, ψ.Ts[x, y+2], ψ.aux_y_idx[x, y+1], Ĥ.aux_y_idx[x, y+1])
             end
 
-            V, S, U = svd(T, (ψ.aux_y_idx[x, y+1], ψ.phys_idx[x, y+1]); cutoff=1e-10, maxdim=χʸ, righttags=tags(ψ.aux_y_idx[x, y]))
+            V, S, U = svd(T, (ψ.aux_y_idx[x, y+1], ψ.phys_idx[x, y+1]); cutoff=tol, maxdim=χʸ, righttags=tags(ψ.aux_y_idx[x, y]))
             dmrg.εl[x, y+1] = U * dmrg.εu[x] * dmrg.εd[x] * Ĥ.Ws[x, y] * prime(dag(U))
 
         else
@@ -345,7 +347,7 @@ function two_site_sweep_arm_right!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator, �
                 T, ψ.Ts[x, y+2], ψ.aux_y_idx[x, y+1] = bond_expansion(Env, T, ψ.Ts[x, y+2], ψ.aux_y_idx[x, y+1], Ĥ.aux_y_idx[x, y+1])
             end
 
-            U, S, V = svd(T, (ψ.aux_y_idx[x, y-1], ψ.phys_idx[x, y]); cutoff=1e-10, maxdim=χʸ, lefttags=tags(ψ.aux_y_idx[x, y]))
+            U, S, V = svd(T, (ψ.aux_y_idx[x, y-1], ψ.phys_idx[x, y]); cutoff=tol, maxdim=χʸ, lefttags=tags(ψ.aux_y_idx[x, y]))
             dmrg.εl[x, y+1] = U * dmrg.εl[x, y] * Ĥ.Ws[x, y] * prime(dag(U))
 
         end
@@ -367,12 +369,14 @@ function two_site_sweep_arm_left!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator, ψ
 
     x = ψ.canonical_center[1]
     χʸ = dmrg.params["χʸ"]
-
+    χʸlst = ones(ψ.Ly)*dmrg.params["χʸ"]
+    χʸlst[1:4] = [20,40,60,80]
+    tol = dmrg.params["svd_tol"]
     for y = ψ.Ly:-1:2
-
+        χʸ = χʸlst[y]
         if y == 2
             T, dmrg.E = lanczos((dmrg.εu[x], dmrg.εd[x], Ĥ.Ws[x, y-1], Ĥ.Ws[x, y], dmrg.εr[x, y]), ψ.Ts[x, y-1] * ψ.Ts[x, y];)
-            V, S, U = svd(T, (ψ.aux_y_idx[x, y], ψ.phys_idx[x, y]); cutoff=1e-10, maxdim=χʸ, lefttags=tags(ψ.aux_y_idx[x, y-1]))
+            V, S, U = svd(T, (ψ.aux_y_idx[x, y], ψ.phys_idx[x, y]); cutoff=tol, maxdim=χʸ, lefttags=tags(ψ.aux_y_idx[x, y-1]))
         else
             T, dmrg.E = lanczos((dmrg.εl[x, y-1], Ĥ.Ws[x, y-1], Ĥ.Ws[x, y], dmrg.εr[x, y]), ψ.Ts[x, y-1] * ψ.Ts[x, y];)
 
@@ -381,7 +385,7 @@ function two_site_sweep_arm_left!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator, ψ
                 T, ψ.Ts[x, y-2], ψ.aux_y_idx[x, y-2] = bond_expansion(Env, T, ψ.Ts[x, y-2], dag(ψ.aux_y_idx[x, y-2]), dag(Ĥ.aux_y_idx[x, y-2]))
             end
 
-            U, S, V = svd(T, (ψ.aux_y_idx[x, y-2], ψ.phys_idx[x, y-1]); cutoff=1e-10, maxdim=χʸ, righttags=tags(ψ.aux_y_idx[x, y-1]))
+            U, S, V = svd(T, (ψ.aux_y_idx[x, y-2], ψ.phys_idx[x, y-1]); cutoff=tol, maxdim=χʸ, righttags=tags(ψ.aux_y_idx[x, y-1]))
         end
         dmrg.εr[x, y-1] = V * dmrg.εr[x, y] * Ĥ.Ws[x, y] * prime(dag(V))
 
@@ -403,7 +407,7 @@ function two_site_update_backbone_down!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperat
 
     x = ψ.canonical_center[1]
     χˣ = dmrg.params["χˣ"]
-
+    tol = dmrg.params["svd_tol"]
     T, dmrg.E = lanczos((dmrg.εu[x], dmrg.εr[x, 1], Ĥ.Ws[x, 1], Ĥ.Ws[x+1, 1], dmrg.εr[x+1, 1], dmrg.εd[x+1]), ψ.Ts[x, 1] * ψ.Ts[x+1, 1];)
 
     if dmrg.params["subspace_expansion"] && x < (ψ.Lx - 1)
@@ -412,9 +416,9 @@ function two_site_update_backbone_down!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperat
     end
 
     if x == 1
-        U, S, V = svd(T, (ψ.aux_y_idx[x, 1], ψ.phys_idx[x, 1]); cutoff=1e-10, maxdim=χˣ, lefttags=tags(ψ.aux_x_idx[x]))
+        U, S, V = svd(T, (ψ.aux_y_idx[x, 1], ψ.phys_idx[x, 1]); cutoff=tol, maxdim=χˣ, lefttags=tags(ψ.aux_x_idx[x]))
     else
-        U, S, V = svd(T, (ψ.aux_x_idx[x-1], ψ.aux_y_idx[x, 1], ψ.phys_idx[x, 1]); cutoff=1e-10, maxdim=χˣ, lefttags=tags(ψ.aux_x_idx[x]))
+        U, S, V = svd(T, (ψ.aux_x_idx[x-1], ψ.aux_y_idx[x, 1], ψ.phys_idx[x, 1]); cutoff=tol, maxdim=χˣ, lefttags=tags(ψ.aux_x_idx[x]))
     end
     dmrg.εu[x+1] = U * dmrg.εu[x] * dmrg.εr[x, 1] * Ĥ.Ws[x, 1] * prime(dag(U))
 
@@ -428,7 +432,7 @@ end # function update_backbone_down!
 
 
 function two_site_update_backbone_up!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator, ψ::ForkTensorNetworkState)
-
+    tol = dmrg.params["svd_tol"]
     ψ.canonical_center[1] == 1 && throw(ArgumentError("xc should not be at x=1 when updating the backbone up."))
     ψ.canonical_center[2] != 1 && throw(ArgumentError("Canonical center should be at the leftmost site of the system when updating the backbone down."))
 
@@ -443,9 +447,9 @@ function two_site_update_backbone_up!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator
     end
 
     if x == ψ.Lx
-        U, S, V = svd(T, (ψ.aux_x_idx[x-2], ψ.aux_y_idx[x-1, 1], ψ.phys_idx[x-1, 1]); cutoff=1e-10, maxdim=χˣ, righttags=tags(ψ.aux_x_idx[x-1]))
+        U, S, V = svd(T, (ψ.aux_x_idx[x-2], ψ.aux_y_idx[x-1, 1], ψ.phys_idx[x-1, 1]); cutoff=tol, maxdim=χˣ, righttags=tags(ψ.aux_x_idx[x-1]))
     else
-        V, S, U = svd(T, (ψ.aux_x_idx[x], ψ.aux_y_idx[x, 1], ψ.phys_idx[x, 1]); cutoff=1e-10, maxdim=χˣ, lefttags=tags(ψ.aux_x_idx[x-1]))
+        V, S, U = svd(T, (ψ.aux_x_idx[x], ψ.aux_y_idx[x, 1], ψ.phys_idx[x, 1]); cutoff=tol, maxdim=χˣ, lefttags=tags(ψ.aux_x_idx[x-1]))
     end
     dmrg.εd[x-1] = V * dmrg.εd[x] * dmrg.εr[x, 1] * Ĥ.Ws[x, 1] * prime(dag(V))
 
