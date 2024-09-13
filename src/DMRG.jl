@@ -54,9 +54,14 @@ function run_dmrg!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator, ψ₀::ForkTensor
 
     E₀ = 0.0
     δE = 1.0
-
+    bond_x_lst = Vector(20:10:310)
+    bond_y_lst = Vector(20:10:310)
     set_initial_environments!(dmrg, Ĥ, ψ)
     for i = 1:dmrg.params["max_iter"]
+
+            ψ.χˣ = bond_x_lst[i]
+            ψ.χʸ = bond_y_lst[i]
+        
 
         if dmrg.params["method"] == "single-site"
 
@@ -76,10 +81,11 @@ function run_dmrg!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator, ψ₀::ForkTensor
         E₀ = dmrg.E
 
         dmrg.params["verbose"] && println("Iteration: ", i, ", Energy: ", dmrg.E, ", δE: ", δE)
+        dmrg.params["verbose"] && get_maxdims(ψ)
         flush(stdout)
         δE < dmrg.params["convergence_tol"] && break
     end
-
+    
     return dmrg.E, ψ
 
 end # function run_dmrg!
@@ -321,7 +327,7 @@ function two_site_sweep_arm_right!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator, �
     ψ.canonical_center[2] != 1 && throw(ArgumentError("Canonical center should be at the leftmost site of the system when updating the arm right."))
 
     x = ψ.canonical_center[1]
-    χʸlst = ones(ψ.Ly)*dmrg.params["χʸ"]
+    χʸlst = ones(ψ.Ly) .* ψ.χʸ
     χʸlst[1:4] = [20,40,60,80]
     tol = dmrg.params["svd_tol"]
     for y = 1:(ψ.Ly-1)
@@ -368,8 +374,8 @@ function two_site_sweep_arm_left!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator, ψ
     ψ.canonical_center[2] != ψ.Ly && throw(ArgumentError("Canonical center should be at the rightmost site of the system when updating the arm left."))
 
     x = ψ.canonical_center[1]
-    χʸ = dmrg.params["χʸ"]
-    χʸlst = ones(ψ.Ly)*dmrg.params["χʸ"]
+    χʸ = ψ.χʸ
+    χʸlst = ones(ψ.Ly) .* ψ.χʸ
     χʸlst[1:4] = [20,40,60,80]
     tol = dmrg.params["svd_tol"]
     for y = ψ.Ly:-1:2
@@ -406,7 +412,7 @@ function two_site_update_backbone_down!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperat
     ψ.canonical_center[2] != 1 && throw(ArgumentError("Canonical center should be at the leftmost site of the system when updating the backbone down."))
 
     x = ψ.canonical_center[1]
-    χˣ = dmrg.params["χˣ"]
+    χˣ = ψ.χˣ
     tol = dmrg.params["svd_tol"]
     T, dmrg.E = lanczos((dmrg.εu[x], dmrg.εr[x, 1], Ĥ.Ws[x, 1], Ĥ.Ws[x+1, 1], dmrg.εr[x+1, 1], dmrg.εd[x+1]), ψ.Ts[x, 1] * ψ.Ts[x+1, 1];)
 
@@ -437,7 +443,7 @@ function two_site_update_backbone_up!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator
     ψ.canonical_center[2] != 1 && throw(ArgumentError("Canonical center should be at the leftmost site of the system when updating the backbone down."))
 
     x = ψ.canonical_center[1]
-    χˣ = dmrg.params["χˣ"]
+    χˣ = ψ.χˣ
 
     T, dmrg.E = lanczos((dmrg.εu[x-1], dmrg.εr[x-1, 1], Ĥ.Ws[x-1, 1], Ĥ.Ws[x, 1], dmrg.εr[x, 1], dmrg.εd[x]), ψ.Ts[x-1, 1] * ψ.Ts[x, 1];)
 
@@ -460,3 +466,16 @@ function two_site_update_backbone_up!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator
     network_update!(ψ, "up")
 
 end # function update_backbone_up!
+
+function get_maxdims(psi::ForkTensorNetworkState)
+    
+    x_dims = dim.(psi.aux_x_idx)
+
+    y_dims = dim.(psi.aux_y_idx)
+
+    Max_x_dim = maximum(x_dims)
+    
+    Max_y_dim = maximum(y_dims)
+
+    println("Max x dim = ", Max_x_dim, ",\t Max y dim = ", Max_y_dim)
+end
