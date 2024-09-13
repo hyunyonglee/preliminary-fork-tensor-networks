@@ -54,8 +54,8 @@ function run_dmrg!(dmrg::DMRG, Ĥ::ForkTensorNetworkOperator, ψ₀::ForkTensor
 
     E₀ = 0.0
     δE = 1.0
-    bond_x_lst = Vector(20:10:310)
-    bond_y_lst = Vector(20:10:310)
+    bond_x_lst = Vector(20:10:ψ.χˣ)
+    bond_y_lst = Vector(20:10:ψ.χʸ)
     set_initial_environments!(dmrg, Ĥ, ψ)
     for i = 1:dmrg.params["max_iter"]
 
