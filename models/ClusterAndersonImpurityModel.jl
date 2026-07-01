@@ -354,6 +354,24 @@ function ftno_cluster_indices(N_bath::Int; conserve_qns=true)
 end
 
 
+# ─── Intra-cluster hopping parameter normalization ───
+# Accepts a scalar (broadcast to all four backbone tensors) or a length-4
+# vector indexed by backbone x = [A↑, A↓, B↑, B↓]. Returns Vector{Float64}.
+function _normalize_cluster_t(t_raw)
+    if t_raw isa Number
+        return fill(Float64(t_raw), 4)
+    elseif t_raw isa AbstractVector
+        length(t_raw) == 4 || error(
+            "model_params[\"t\"] must be a scalar or a length-4 vector " *
+            "[t_A↑, t_A↓, t_B↑, t_B↓]; got length $(length(t_raw))")
+        return Float64.(collect(t_raw))
+    else
+        error("model_params[\"t\"] must be a Number or a length-4 vector; " *
+              "got $(typeof(t_raw))")
+    end
+end
+
+
 # ─── FTNO model construction ───
 
 function ftno_cluster_aim_model(model_params::Dict{String,Any})
@@ -363,7 +381,7 @@ function ftno_cluster_aim_model(model_params::Dict{String,Any})
     U = model_params["U"]
     U′ = model_params["U′"]
     J = model_params["J"]
-    t = model_params["t"]
+    tvec = _normalize_cluster_t(model_params["t"])   # [A↑, A↓, B↑, B↓]
     εₖ = model_params["εₖ"]    # 4 × (N_bath+2): [imp_site1, imp_site2, bath1, ..., bathN]
     Vₖ = model_params["Vₖ"]    # 4 × (N_bath+2) × 2: site-dependent V_jmk (ComplexF64)
 
@@ -394,22 +412,22 @@ function ftno_cluster_aim_model(model_params::Dict{String,Any})
     # x=1: A↑
     Ws[1, 1] = W_cluster_imp_A_up(
         phys_idx[1, 1], aux_x_idx[1], aux_y_idx[1, 1],
-        εₖ[1, 1], εₖ[1, 2], t)
+        εₖ[1, 1], εₖ[1, 2], tvec[1])
 
     # x=2: A↓
     Ws[2, 1] = W_cluster_imp_A_down(
         phys_idx[2, 1], aux_x_idx[2], dag(aux_x_idx[1]), aux_y_idx[2, 1],
-        εₖ[2, 1], εₖ[2, 2], t, U)
+        εₖ[2, 1], εₖ[2, 2], tvec[2], U)
 
     # x=3: B↑
     Ws[3, 1] = W_cluster_imp_B_up(
         phys_idx[3, 1], aux_x_idx[3], dag(aux_x_idx[2]), aux_y_idx[3, 1],
-        εₖ[3, 1], εₖ[3, 2], t, U′, J)
+        εₖ[3, 1], εₖ[3, 2], tvec[3], U′, J)
 
     # x=4: B↓
     Ws[4, 1] = W_cluster_imp_B_down(
         phys_idx[4, 1], dag(aux_x_idx[3]), aux_y_idx[4, 1],
-        εₖ[4, 1], εₖ[4, 2], t, U, U′, J)
+        εₖ[4, 1], εₖ[4, 2], tvec[4], U, U′, J)
 
     return Ws, phys_idx, aux_x_idx, aux_y_idx
 end
